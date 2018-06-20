@@ -1,11 +1,21 @@
 const express = require('express')
 const bodyParser = require('body-parser')
 const app = express()
-
+const session = require('express-session')
 const mongoose = require('mongoose')
+
+// Setting up express sessions
+app.use(session({
+    secret: 'asdasdqwdasdwadawdasdwads',
+    saveUninitialized: false,
+    resave: false,
+    cookie: { secure: false }
+}))
+
 mongoose.Promise = Promise
 mongoose.connect('mongodb://localhost:27017/angulardb')
     .then(() => console.log('Mogoose up'))
+
 
 const User = require('./models/users')
 
@@ -24,14 +34,23 @@ app.post('/api/login', async (req, res) => {
             message: "Incorrect Details"
         })
     } else {
-        res.json({
-            success: true,
-        })
-        console.log("Logging you in");
         // make  a session and set user to logged in.
+        req.session.user = email
+
+        console.log("user session: " + req.session.user)
+        console.log("Logging you in");
+
+        res.json({
+            success: true
+        })
     }
 
-    //res.send("ok");
+})
+
+app.get('/api/isloggedin', (req, res) => {
+    res.json({
+        status: !!req.session.user
+    })
 })
 
 app.post('/api/register', async (req, res) => {
@@ -60,6 +79,32 @@ app.post('/api/register', async (req, res) => {
         success: true,
         message: "Welcome!"
     });
+})
+
+app.get('/api/data', async (req, res) => {
+    console.log("api/data: ", req.session)
+    const user = await User.findOne({email: req.session.user})
+
+    if(!user){
+        res.json({
+            status: false,
+            message: 'User was deleted'
+        })
+        return
+    }
+    
+    res.json({
+        status: true,
+        email: req.session.user,
+        quote: user.quote
+    });
+})
+
+app.get('/api/logout', (req, res) => {
+    req.session.destroy()
+    res.json({
+        success: true
+    })
 })
 
 app.listen(1234, () => console.log('Server listening at 1234'))
